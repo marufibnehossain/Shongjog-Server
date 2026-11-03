@@ -48,7 +48,55 @@ app.post("/events/create", async (req, res) => {
 
 app.get("/events", async (req, res) => {
   const results = await eventsCollection.find({}).toArray();
-  res.send(results);
+  const formattedEvents = results.map((event) => ({
+    ...event,
+    id: event._id.toString(),
+    _id: undefined,
+}));
+  res.send(formattedEvents);
+});
+
+import { ObjectId } from "mongodb";
+
+app.get("/events/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        console.log("Requested event ID:", id);
+
+        if (!ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid event ID",
+            });
+        }
+
+        const event = await eventsCollection.findOne({
+            _id: new ObjectId(id),
+        });
+
+        if (!event) {
+            return res.status(404).json({
+                success: false,
+                message: "Event not found",
+            });
+        }
+
+        const formattedEvent = {
+            ...event,
+            id: event._id.toString(),
+            _id: undefined,
+        };
+
+        res.status(200).json(formattedEvent);
+    } catch (error) {
+        console.error("Error fetching event:", error);
+
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch event",
+        });
+    }
 });
 
 app.get("/", (req, res) => {
