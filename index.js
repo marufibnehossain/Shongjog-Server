@@ -28,23 +28,22 @@ app.post("/events/create", async (req, res) => {
     const event = req.body;
 
     const result = await eventsCollection.insertOne(event);
-    console.log(result);
-    res.send(result);
-
-    // save event to MongoDB
 
     res.status(201).json({
       success: true,
       message: "Event added successfully",
-      event,
+      event: {
+        ...event,
+        id: result.insertedId.toString(),
+      },
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to add event",
-    });
-  }
-});
+      res.status(500).json({
+        success: false,
+        message: "Failed to add event",
+      });
+    }
+  });
 
 app.get("/events", async (req, res) => {
   const results = await eventsCollection.find({}).toArray();
@@ -61,20 +60,13 @@ import { ObjectId } from "mongodb";
 app.get("/events/:id", async (req, res) => {
     try {
         const { id } = req.params;
-
-        console.log("Requested event ID:", id);
-
         if (!ObjectId.isValid(id)) {
             return res.status(400).json({
                 success: false,
                 message: "Invalid event ID",
             });
         }
-
-        const event = await eventsCollection.findOne({
-            _id: new ObjectId(id),
-        });
-
+        const event = await eventsCollection.findOne({_id: new ObjectId(id),});
         if (!event) {
             return res.status(404).json({
                 success: false,
@@ -97,6 +89,21 @@ app.get("/events/:id", async (req, res) => {
             message: "Failed to fetch event",
         });
     }
+});
+
+app.patch("/events/:id", async (req, res) => {
+  const { id } = req.params;
+  const updatedData = req.body;
+  const result = await eventsCollection.updateOne({ _id: new ObjectId(id) }, { $set: updatedData });
+
+  res.json(result);
+});
+
+app.delete("/events/:id", async (req, res) => {
+  const { id } = req.params;
+  const result = await eventsCollection.deleteOne({ _id: new ObjectId(id) });
+
+  res.json(result);
 });
 
 app.get("/", (req, res) => {
