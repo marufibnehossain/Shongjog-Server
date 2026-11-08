@@ -22,6 +22,7 @@ export async function connectToMongoDB() {
 const mongoClient = await connectToMongoDB();
 const db = mongoClient.db("shongjog");
 const eventsCollection = db.collection("events");
+const joinedEventsCollection = db.collection("joinedEvents");
 
 app.post("/events/create", async (req, res) => {
   try {
@@ -104,6 +105,51 @@ app.delete("/events/:id", async (req, res) => {
   const result = await eventsCollection.deleteOne({ _id: new ObjectId(id) });
 
   res.json(result);
+});
+
+app.post("/events/join", async (req, res) => {
+  const data = req.body;
+  const alreadyJoined = await joinedEventsCollection.findOne({
+    id: data.id,
+    email: data.email,
+  });
+  if (alreadyJoined) {
+    return res.status(400).json({
+      message: "You have already joined this event.",
+    });
+  }
+  const result = await joinedEventsCollection.insertOne(data);
+  res.send(result);
+});
+
+app.get("/events/joined/:email", async (req, res) => {
+  const { email } = req.params;
+  const results = await joinedEventsCollection.find({ email:email }).toArray();
+  res.send(results);
+});
+
+app.get("/events/joined/check/:id", async (req, res) => {
+  const { id } = req.params;
+  const { email } = req.query;
+
+  const joinedEvent = await joinedEventsCollection.findOne({
+    id: id,
+    email: email,
+  });
+
+  res.send({
+    joined: !!joinedEvent,
+  });
+});
+
+app.delete("/events/joined/:id", async (req, res) => {
+  const { id } = req.params;
+  const { email } = req.body;
+  const result = await joinedEventsCollection.deleteOne({
+    id: id,
+    email: email,
+  });
+  res.send(result);
 });
 
 app.get("/", (req, res) => {
