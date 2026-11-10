@@ -24,6 +24,22 @@ const db = mongoClient.db("shongjog");
 const eventsCollection = db.collection("events");
 const joinedEventsCollection = db.collection("joinedEvents");
 
+const verifyToken =  (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  
+  if(!authHeader) {
+    return res.status(401).send({msg: "Unauthorized"});
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  if(!token) {
+    return res.status(401).send({msg: "Unauthorized"});
+  }
+  
+  next();
+}
+
 app.post("/events/create", async (req, res) => {
   try {
     const event = req.body;
@@ -46,7 +62,7 @@ app.post("/events/create", async (req, res) => {
     }
   });
 
-app.get("/events", async (req, res) => {
+app.get("/events", verifyToken, async (req, res) => {
   const results = await eventsCollection.find({}).toArray();
   const formattedEvents = results.map((event) => ({
     ...event,
@@ -58,7 +74,7 @@ app.get("/events", async (req, res) => {
 
 import { ObjectId } from "mongodb";
 
-app.get("/events/:id", async (req, res) => {
+app.get("/events/:id", verifyToken, async (req, res) => {    
     try {
         const { id } = req.params;
         if (!ObjectId.isValid(id)) {
