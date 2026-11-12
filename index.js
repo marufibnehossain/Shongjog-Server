@@ -2,6 +2,8 @@ import express from "express";
 import { MongoClient } from 'mongodb';
 import 'dotenv/config';
 import cors from 'cors';
+import { ObjectId } from "mongodb";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const app = express();
 const client = new MongoClient(process.env.MONGODB_URI);
@@ -24,7 +26,7 @@ const db = mongoClient.db("shongjog");
 const eventsCollection = db.collection("events");
 const joinedEventsCollection = db.collection("joinedEvents");
 
-const verifyToken =  (req, res, next) => {
+const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   
   if(!authHeader) {
@@ -36,11 +38,18 @@ const verifyToken =  (req, res, next) => {
   if(!token) {
     return res.status(401).send({msg: "Unauthorized"});
   }
-  
-  next();
+
+  const JWKS = createRemoteJWKSet(new URL(process.env.JWKS_URL));
+
+  try{
+    const {payload} = await jwtVerify(token, JWKS);
+    next();
+  } catch (error) {
+    return res.status(401).send({msg: "Unauthorized"});
+  }
 }
 
-app.post("/events/create", async (req, res) => {
+app.post("/events/create", verifyToken, async (req, res) => {
   try {
     const event = req.body;
 
@@ -71,8 +80,6 @@ app.get("/events", verifyToken, async (req, res) => {
 }));
   res.send(formattedEvents);
 });
-
-import { ObjectId } from "mongodb";
 
 app.get("/events/:id", verifyToken, async (req, res) => {    
     try {
@@ -108,7 +115,7 @@ app.get("/events/:id", verifyToken, async (req, res) => {
     }
 });
 
-app.patch("/events/:id", async (req, res) => {
+app.patch("/events/:id", verifyToken, async (req, res) => {
   const { id } = req.params;
   const updatedData = req.body;
   const result = await eventsCollection.updateOne({ _id: new ObjectId(id) }, { $set: updatedData });
@@ -116,14 +123,14 @@ app.patch("/events/:id", async (req, res) => {
   res.json(result);
 });
 
-app.delete("/events/:id", async (req, res) => {
+app.delete("/events/:id", verifyToken, async (req, res) => {
   const { id } = req.params;
   const result = await eventsCollection.deleteOne({ _id: new ObjectId(id) });
 
   res.json(result);
 });
 
-app.post("/events/join", async (req, res) => {
+app.post("/events/join", verifyToken, async (req, res) => {
   const data = req.body;
   const alreadyJoined = await joinedEventsCollection.findOne({
     id: data.id,
@@ -138,13 +145,13 @@ app.post("/events/join", async (req, res) => {
   res.send(result);
 });
 
-app.get("/events/joined/:email", async (req, res) => {
+app.get("/events/joined/:email", verifyToken, async (req, res) => {
   const { email } = req.params;
   const results = await joinedEventsCollection.find({ email:email }).toArray();
   res.send(results);
 });
 
-app.get("/events/joined/check/:id", async (req, res) => {
+app.get("/events/joined/check/:id", verifyToken, async (req, res) => {
   const { id } = req.params;
   const { email } = req.query;
 
@@ -158,7 +165,7 @@ app.get("/events/joined/check/:id", async (req, res) => {
   });
 });
 
-app.delete("/events/joined/:id", async (req, res) => {
+app.delete("/events/joined/:id", verifyToken, async (req, res) => {
   const { id } = req.params;
   const { email } = req.body;
   const result = await joinedEventsCollection.deleteOne({
