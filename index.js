@@ -85,6 +85,23 @@ app.get("/events", async (req, res) => {
   res.send(formattedEvents);
 });
 
+app.get("/events/upcoming", async (req, res) => {
+  const today = new Date().toISOString().split("T")[0];
+  const limit = parseInt(req.query.limit);
+
+  let query = eventsCollection
+    .find({ date: { $gt: today } })
+    .sort({ date: 1 });
+
+  if (limit) {
+    query = query.limit(limit);
+  }
+
+  const result = await query.toArray();
+
+  res.send(result);
+});
+
 app.post("/events/join", verifyToken, async (req, res) => {
   const data = req.body;
   const alreadyJoined = await joinedEventsCollection.findOne({
