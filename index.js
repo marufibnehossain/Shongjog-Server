@@ -99,11 +99,16 @@ app.get("/events/upcoming", async (req, res) => {
 
   const result = await query.toArray();
 
-  res.send(result);
+  const events = result.map(({ _id, ...event }) => ({
+    ...event,
+    id: _id.toString(),
+  }));
+
+  res.send(events);
 });
 
 app.post("/events/join", verifyToken, async (req, res) => {
-  const data = req.body;
+  const data = { ...req.body, email: req.user.email };
   const alreadyJoined = await joinedEventsCollection.findOne({
     id: data.id,
     email: data.email,
@@ -118,18 +123,18 @@ app.post("/events/join", verifyToken, async (req, res) => {
 });
 
 app.get("/events/joined/:email", verifyToken, async (req, res) => {
-  const { email } = req.params;
-  const results = await joinedEventsCollection.find({ email:email }).toArray();
+  const email = req.user.email;
+  const results = await joinedEventsCollection.find({ email:email }).sort({ date: 1 }).toArray();
   res.send(results);
 });
 
 app.get("/events/joined/check/:id", verifyToken, async (req, res) => {
   const { id } = req.params;
-  const { email } = req.query;
+  const email = req.user.email;
 
   const joinedEvent = await joinedEventsCollection.findOne({
-    id: id,
-    email: email,
+    id,
+    email,
   });
 
   res.send({
@@ -139,11 +144,13 @@ app.get("/events/joined/check/:id", verifyToken, async (req, res) => {
 
 app.delete("/events/joined/:id", verifyToken, async (req, res) => {
   const { id } = req.params;
-  const { email } = req.body;
+  const email = req.user.email;
+
   const result = await joinedEventsCollection.deleteOne({
-    id: id,
-    email: email,
+    id,
+    email,
   });
+
   res.send(result);
 });
 
